@@ -4,7 +4,7 @@ import joblib
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns 
-import matplotlib.font_manager as fm 
+import matplotlib.font_manager as fm
 
 
 # ========== 協調フィルタリング用データと準備 ==========
@@ -48,7 +48,7 @@ FEATURE_LABEL_MAPPING_EN = {
     '状態_評価': 'Condition Score',
 }
 
-# グラフラベルのクリーンアップ関数 (最終的な英語名決定ロジック)
+# グラフ・ラベルのクリーンアップ関数 (最終的な英語名決定ロジック)
 def clean_feature_label(x):
     """特徴量名からプレフィックスを削除し、英語名に変換する関数"""
     clean_name = x.replace('remainder__', '')
@@ -59,6 +59,7 @@ def clean_feature_label(x):
     
     # 2. カテゴリ特徴量 ('cat__トヨタ' -> 'TOYOTA') の変換
     elif clean_name.startswith('cat__'):
+        # 'cat__トヨタ' -> 'トヨタ' (日本語) を抽出
         jp_name = clean_name.replace('cat__', '')
         # 日本語キーから英語大文字キーに変換
         return JAPANESE_TO_ENGLISH.get(jp_name, jp_name.upper()) 
@@ -200,7 +201,7 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
         
         df_plot = feature_importance_df.copy()
         
-        # 構文エラーを解消した clean_feature_label 関数を適用
+        # 最終的な英語ラベルのクリーンアップ関数を適用
         df_plot['feature_clean'] = df_plot['feature'].apply(clean_feature_label)
 
         # Top 5を可視化
