@@ -5,6 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns # 特徴量重要度グラフ用
 
+plt.rcParams['font.family'] = 'IPAGothic'
+plt.rcParams['axes.unicode_minus'] = False
+
 # ========== 協調フィルタリング用データと準備 ==========
 MAKER_OPTIONS = ['トヨタ', 'ホンダ', '日産', 'BMW', 'マツダ', 'スバル', 'メルセデス', 'アウディ', 'その他'] 
 
@@ -196,8 +199,12 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
         # グラフの描画
         fig, ax = plt.subplots(figsize=(8, 4))
         sns.barplot(x='importance', y='feature_clean', data=df_plot, ax=ax, palette='viridis')
-        ax.set_title('予測に影響を与えた上位の特徴量', fontsize=14)
-        ax.set_xlabel('重要度 (%)')
+
+# ⚠️ 修正・確認箇所: 日本語のラベルが正しく渡されているか確認
+# plt.rcParams['font.family'] = 'IPAGothic' が適用されている前提で
+
+        ax.set_title('予測に影響を与えた上位の特徴量', fontsize=14) 
+        ax.set_xlabel('重要度 (%)') # 日本語
         ax.set_ylabel('')
         st.pyplot(fig)
 
@@ -207,3 +214,4 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
 
 
 st.markdown("---")
+
