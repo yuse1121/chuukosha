@@ -3,23 +3,20 @@ import pandas as pd
 import joblib
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns # 特徴量重要度グラフ用
-
-plt.rcParams['font.family'] = 'IPAGothic'
-plt.rcParams['axes.unicode_minus'] = False
+import seaborn as sns # グラフ描画ライブラリ
 
 # ========== 協調フィルタリング用データと準備 ==========
 MAKER_OPTIONS = ['トヨタ', 'ホンダ', '日産', 'BMW', 'マツダ', 'スバル', 'メルセデス', 'アウディ', 'その他'] 
 
-# 日本語表示用マッピング
+# 表示用と内部処理用のマッピング
 MAKER_MAPPING = {
-    'トヨタ': 'トヨタ', 'ホンダ': 'ホンダ', '日産': '日産', 'BMW': 'BMW', 'マツダ': 'マツダ', 'スバル': 'スバル',
-    'メルセデス': 'メルセデス・ベンツ', 'アウディ': 'アウディ',
+    'トヨタ': 'toyota', 'ホンダ': 'honda', '日産': 'nissan', 'BMW': 'bmw', 'マツダ': 'mazda', 'スバル': 'subaru',
+    'メルセデス': 'mercedes-benz', 'アウディ': 'audi',
 }
 # selectboxに表示するオプションリスト (例: トヨタ (toyota))
-DISPLAY_OPTIONS = [f"{eng} ({MAKER_MAPPING[eng]})" for eng in MAKER_OPTIONS if eng != 'その他'] + ['その他']
+DISPLAY_OPTIONS = [f"{jp} ({MAKER_MAPPING[jp]})" for jp in MAKER_OPTIONS if jp != 'その他'] + ['その他']
 
-# 仮想のユーザー興味データ
+# 仮想のユーザー興味データ (日本語メーカー名を使用)
 recommendation_data = {
     'トヨタ': {'UserA': 5, 'UserB': 1, 'UserC': 4, 'UserD': 5, 'UserE': 2},
     'ホンダ': {'UserA': 4, 'UserB': 5, 'UserC': 2, 'UserD': 4, 'UserE': 5},
@@ -36,19 +33,18 @@ interest_df = pd.DataFrame(recommendation_data).fillna(0)
 
 
 # 1. モデルと重要度データの読み込み
+# ⚠️ Streamlit Cloudでモデルファイルが見つからない問題に対処するため、パスを直接指定
 try:
-    # ⚠️ Streamlit Cloudの環境パスに合わせて読み込みパスを指定します
-    BASE_PATH = "Streamlit_chuuko/"  # あなたのリポジトリのルートフォルダ名 (画像から確認)
-    
+    BASE_PATH = "" # ローカル実行時は空、Cloudの場合はリポジトリ名 (例: "Streamlit_chuuko/") を指定する
     model_pipeline = joblib.load(BASE_PATH + 'car_price_predictor_model.joblib')
     feature_importance_df = joblib.load(BASE_PATH + 'feature_importance.joblib') 
-
 except FileNotFoundError:
-    st.error("【最終エラー】モデルファイルが見つかりません。パスを確認してください。")
+    st.error("モデルまたは特徴量ファイルが見つかりません。train_model.pyを再実行してください。")
     st.stop()
 except Exception as e:
     st.error(f"モデルの読み込み中にエラーが発生しました: {e}")
     st.stop()
+
 
 # 2. アプリのレイアウト設定
 st.title("🚗 中古車価格予測・推薦アプリ")
@@ -61,11 +57,14 @@ st.header("予測条件の入力")
 col1, col2 = st.columns(2)
 
 with col1:
-    # ⚠️ 修正箇所: ここで maker_display に結果を格納
+    # 選択された文字列から、モデルが必要とする日本語メーカー名（例: 'トヨタ'）を抽出
     maker_display = st.selectbox(
         'メーカー',
         options=DISPLAY_OPTIONS
     )
+    # 内部処理用のキーを抽出 (例: 'トヨタ (toyota)' -> 'トヨタ')
+    maker = maker_display.split(' ')[0] 
+
 
     current_year = 2025
     year_options = list(range(2015, current_year + 1))
@@ -98,19 +97,11 @@ st.markdown("---")
 # 4. 予測ボタンと処理
 if st.button('価格を予測する & 関連車種を推薦する', type='primary'):
     
-    # ⚠️ 修正箇所: maker_display からモデルが必要とする英語/日本語名（キー）を抽出
-    if '(' in maker_display:
-        # 例: "トヨタ (toyota)" -> "トヨタ" を抽出
-        maker = maker_display.split(' ')[0]
-    else:
-        # 例: "その他" の場合は "その他" を使用
-        maker = maker_display
-
     # ユーザー入力をDataFrameに格納 
     input_data = pd.DataFrame({
         '走行距離_km': [mileage],
         '年式': [year],
-        'メーカー': [maker], # モデルが学習したキー（例: 'トヨタ'）を使用
+        'メーカー': [maker], # 日本語メーカー名がモデルのキーとして使われます
         '状態_評価': [condition], 
     })
     
@@ -125,11 +116,10 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
         st.caption("※ 予測は仮想データで学習したランダムフォレストモデルの結果です。")
 
 
-        # --- (B) NEW: 価格の妥当性評価 ---
+        # --- (B) 価格の妥当性評価 ---
         st.markdown("---")
         st.subheader("💰 価格の妥当性評価")
         
-        # 妥当な基準価格を計算 (年式と状態が良いほど高くなる単純ロジック)
         base_value = (year - 2015) * 50000 + condition * 10000 
         
         if predicted_price > (1.2 * base_value):
@@ -145,13 +135,11 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
 
         # --- (C) 協調フィルタリング：推薦の実行 ---
         st.subheader("👥 関連車種の推薦 (協調フィルタリング)")
-        target_maker = maker # 抽出したメーカー名を使用
+        target_maker = maker 
         
         if target_maker in interest_df.columns:
-            # ターゲット車種と他の車種との相関（類似度）を計算
             correlations = interest_df.corrwith(interest_df[target_maker]).sort_values(ascending=False)
             
-            # ターゲット車種自身と、'その他'、NaN（データ不足）を除外
             recommendations = correlations.drop(target_maker, errors='ignore').dropna()
             recommendations = recommendations.drop('その他', errors='ignore')
             
@@ -160,21 +148,16 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
             if top_recommendations.empty:
                 st.info("推薦できる他のメーカー情報がありません。")
             else:
-                target_maker_jp = MAKER_MAPPING.get(target_maker, target_maker)
+                target_maker_jp = target_maker # 日本語名
                 st.info(f"この **{target_maker_jp}** に興味を持つユーザーは、以下のメーカーにも関心を持っています。")
                 
                 rec_list = []
-                for rank, (rec_maker_eng, score) in enumerate(top_recommendations.items(), 1):
-                    rec_maker_jp = MAKER_MAPPING.get(rec_maker_eng, rec_maker_eng)
+                for rank, (rec_maker_jp, score) in enumerate(top_recommendations.items(), 1):
                     
-                    if score > 0.8:
-                        intensity = "非常に強い関心"
-                    elif score > 0.4:
-                        intensity = "強い関心"
-                    elif score > 0:
-                        intensity = "一般的な関心"
-                    else:
-                        intensity = "低い関心 (対立傾向)"
+                    if score > 0.8: intensity = "非常に強い関心"
+                    elif score > 0.4: intensity = "強い関心"
+                    elif score > 0: intensity = "一般的な関心"
+                    else: intensity = "低い関心 (対立傾向)"
 
                     rec_list.append(f"{rank}. **{rec_maker_jp}** (関心度: {score:.2f} - {intensity})")
                 
@@ -184,34 +167,49 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
             st.warning("このメーカーの推薦データは現在不足しています。")
 
 
-        # --- (D) NEW: 特徴量の重要度グラフの表示 ---
+        # --- (D) 特徴量の重要度グラフの表示 ---
         st.markdown("---")
         st.subheader("📊 予測への貢献度 (特徴量重要度)")
         
         df_plot = feature_importance_df.copy()
         
-        # 影響度の低いOne-Hot Encodingされたメーカーの列を除外して、トップ5を表示
-        df_plot['feature_clean'] = df_plot['feature'].apply(lambda x: x.split('__')[1] if '__' in x else x)
+        # ⚠️ 日本語ラベルを英語ラベルにマッピング (文字化け回避)
+        FEATURE_LABEL_MAPPING_EN = {
+            '走行距離_km': 'Mileage (km)',
+            '年式': 'Year',
+            '状態_評価': 'Condition Score',
+        }
         
-        # Top 5を可視化
+        df_plot['feature_clean'] = df_plot['feature'].apply(lambda x: 
+            # One-Hot Encodingされたメーカー名(cat__トヨタ)をそのまま使用
+            x.split('__')[1] if x.startswith('cat__') else 
+            # その他の特徴量は英語に変換
+            FEATURE_LABEL_MAPPING_EN.get(x, x)
+        )
+        
         df_plot = df_plot.sort_values('importance', ascending=False).head(5)
         
-        # グラフの描画
+        # グラフ描画 (日本語フォント設定を削除)
         fig, ax = plt.subplots(figsize=(8, 4))
         sns.barplot(x='importance', y='feature_clean', data=df_plot, ax=ax, palette='viridis')
+        
+        # ⚠️ 英語ラベルを設定
+        ax.set_title('Top Features Influencing Price', fontsize=14)
+        ax.set_xlabel('Importance (%)')
+        ax.set_ylabel('Feature')
+        
+        # Y軸ラベル (棒の横の文字) も英語に設定 (例: トヨタ -> toyota)
+        # One-Hot Encodingされたメーカー名から日本語を削除して英語表記にする
+        y_labels = [label.replace('cat__', '').upper() if label.startswith('cat__') else label for label in df_plot['feature'].tolist()]
+        # 他のラベルはそのまま英語
+        y_labels = [FEATURE_LABEL_MAPPING_EN.get(label, label) for label in df_plot['feature_clean'].tolist()]
 
-# ⚠️ 修正・確認箇所: 日本語のラベルが正しく渡されているか確認
-# plt.rcParams['font.family'] = 'IPAGothic' が適用されている前提で
+        ax.set_yticklabels(y_labels)
 
-        ax.set_title('予測に影響を与えた上位の特徴量', fontsize=14) 
-        ax.set_xlabel('重要度 (%)') # 日本語
-        ax.set_ylabel('')
         st.pyplot(fig)
 
 
     except Exception as e:
         st.error(f"予測または推薦処理中にエラーが発生しました。エラー: {e}")
 
-
 st.markdown("---")
-
