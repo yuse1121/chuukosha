@@ -179,44 +179,63 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
         df_plot = feature_importance_df.copy()
         
         # ⚠️ 日本語ラベルを英語ラベルにマッピング (文字化け回避)
-        FEATURE_LABEL_MAPPING_EN = {
-            '走行距離_km': 'Mileage (km)',
-            '年式': 'Year',
-            '状態_評価': 'Condition Score',
-        }
+        # app.py の (D) 特徴量の重要度グラフの表示 のコードブロック内
+
+# ... (中略: df_plot の作成コード) ...
+
+# ⚠️ NEW: 特徴量ラベルの英語マッピングを再確認
+FEATURE_LABEL_MAPPING_EN = {
+    '走行距離_km': 'Mileage (km)',
+    '年式': 'Year',
+    '状態_評価': 'Condition Score',
+}
 
 # 'feature_clean' 列を生成し、不要なプレフィックスや日本語を削除・変換
-        df_plot['feature_clean'] = df_plot['feature'].apply(lambda x: 
-    # 'remainder__走行距離_km' -> 'Mileage (km)' に変換
-            FEATURE_LABEL_MAPPING_EN.get(x.replace('remainder__', ''), 
-        # 'cat__トヨタ' -> 'TOYOTA' に変換
-            x.replace('cat__', '').upper() if x.startswith('cat__') else 
-            x # その他の場合はそのまま
-        )
-    )
+df_plot['feature_clean'] = df_plot['feature'].apply(lambda x: 
+    # 1. 'remainder__年式' -> 'Year' / 'remainder__走行距離_km' -> 'Mileage (km)' に変換
+    clean_name = x.replace('remainder__', '')
+    
+    # 2. FEATURE_LABEL_MAPPING_ENで変換
+    if clean_name in FEATURE_LABEL_MAPPING_EN:
+        return FEATURE_LABEL_MAPPING_EN[clean_name]
+    
+    # 3. 'cat__トヨタ' -> 'TOYOTA' に変換
+    elif clean_name.startswith('cat__'):
+        # 日本語メーカー名を英語大文字に変換 (e.g., 'cat__トヨタ' -> 'TOYOTA')
+        jp_name = clean_name.replace('cat__', '')
+        # 日本語と英語の対応付け (内部で持っているMAPを逆に使う)
+        rev_maker_mapping = {v: k for k, v in MAKER_MAPPING.items()}
+        english_name = rev_maker_mapping.get(jp_name, jp_name).upper()
+        return english_name
+    
+    # 4. それ以外はそのまま (エラー回避)
+    else:
+        return x
+)
 
 # Top 5を可視化
-        df_plot = df_plot.sort_values('importance', ascending=False).head(5)
+df_plot = df_plot.sort_values('importance', ascending=False).head(5)
 
-# グラフ描画 (日本語フォント設定は不要)
-        fig, ax = plt.subplots(figsize=(8, 4))
-        sns.barplot(x='importance', y='feature_clean', data=df_plot, ax=ax, palette='viridis')
+# グラフ描画
+fig, ax = plt.subplots(figsize=(8, 4))
+sns.barplot(x='importance', y='feature_clean', data=df_plot, ax=ax, palette='viridis')
 
-# 英語ラベルを設定
-        ax.set_title('Top Features Influencing Price', fontsize=14)
-        ax.set_xlabel('Importance (%)')
-        ax.set_ylabel('') # Y軸のFeatureラベルは不要
+# 英語ラベルを設定 (再確認)
+ax.set_title('Top Features Influencing Price', fontsize=14)
+ax.set_xlabel('Importance (%)')
+ax.set_ylabel('') 
 
-# Y軸の目盛りラベルは df_plot['feature_clean'] の値（きれいな英語名）を使用
-        ax.set_yticklabels(df_plot['feature_clean'].tolist())
-        ax.tick_params(axis='y', labelsize=10) # サイズ調整
+# Y軸の目盛りラベルはクリーンな英語名を使用
+ax.set_yticklabels(df_plot['feature_clean'].tolist())
+ax.tick_params(axis='y', labelsize=10) 
 
-        st.pyplot(fig)
+st.pyplot(fig)
 
 
     except Exception as e:
         st.error(f"予測または推薦処理中にエラーが発生しました。エラー: {e}")
 
 st.markdown("---")
+
 
 
