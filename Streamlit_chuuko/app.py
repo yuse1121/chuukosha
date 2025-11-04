@@ -184,32 +184,32 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
             '年式': 'Year',
             '状態_評価': 'Condition Score',
         }
-        
+
+# 'feature_clean' 列を生成し、不要なプレフィックスや日本語を削除・変換
         df_plot['feature_clean'] = df_plot['feature'].apply(lambda x: 
-            # One-Hot Encodingされたメーカー名(cat__トヨタ)をそのまま使用
-            x.split('__')[1] if x.startswith('cat__') else 
-            # その他の特徴量は英語に変換
-            FEATURE_LABEL_MAPPING_EN.get(x, x)
+    # 'remainder__走行距離_km' -> 'Mileage (km)' に変換
+            FEATURE_LABEL_MAPPING_EN.get(x.replace('remainder__', ''), 
+        # 'cat__トヨタ' -> 'TOYOTA' に変換
+            x.replace('cat__', '').upper() if x.startswith('cat__') else 
+            x # その他の場合はそのまま
         )
-        
+    )
+
+# Top 5を可視化
         df_plot = df_plot.sort_values('importance', ascending=False).head(5)
-        
-        # グラフ描画 (日本語フォント設定を削除)
+
+# グラフ描画 (日本語フォント設定は不要)
         fig, ax = plt.subplots(figsize=(8, 4))
         sns.barplot(x='importance', y='feature_clean', data=df_plot, ax=ax, palette='viridis')
-        
-        # ⚠️ 英語ラベルを設定
+
+# 英語ラベルを設定
         ax.set_title('Top Features Influencing Price', fontsize=14)
         ax.set_xlabel('Importance (%)')
-        ax.set_ylabel('Feature')
-        
-        # Y軸ラベル (棒の横の文字) も英語に設定 (例: トヨタ -> toyota)
-        # One-Hot Encodingされたメーカー名から日本語を削除して英語表記にする
-        y_labels = [label.replace('cat__', '').upper() if label.startswith('cat__') else label for label in df_plot['feature'].tolist()]
-        # 他のラベルはそのまま英語
-        y_labels = [FEATURE_LABEL_MAPPING_EN.get(label, label) for label in df_plot['feature_clean'].tolist()]
+        ax.set_ylabel('') # Y軸のFeatureラベルは不要
 
-        ax.set_yticklabels(y_labels)
+# Y軸の目盛りラベルは df_plot['feature_clean'] の値（きれいな英語名）を使用
+        ax.set_yticklabels(df_plot['feature_clean'].tolist())
+        ax.tick_params(axis='y', labelsize=10) # サイズ調整
 
         st.pyplot(fig)
 
@@ -218,4 +218,5 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
         st.error(f"予測または推薦処理中にエラーが発生しました。エラー: {e}")
 
 st.markdown("---")
+
 
