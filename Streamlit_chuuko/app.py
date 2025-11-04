@@ -34,10 +34,14 @@ interest_df = pd.DataFrame(recommendation_data).fillna(0)
 
 # 1. モデルと重要度データの読み込み
 try:
-    model_pipeline = joblib.load('car_price_predictor_model.joblib')
-    feature_importance_df = joblib.load('feature_importance.joblib') 
+    # ⚠️ Streamlit Cloudの環境パスに合わせて読み込みパスを指定します
+    BASE_PATH = "Streamlit_chuuko/"  # あなたのリポジトリのルートフォルダ名 (画像から確認)
+    
+    model_pipeline = joblib.load(BASE_PATH + 'car_price_predictor_model.joblib')
+    feature_importance_df = joblib.load(BASE_PATH + 'feature_importance.joblib') 
+
 except FileNotFoundError:
-    st.error("モデルまたは特徴量ファイルが見つかりません。train_model.pyを再実行してください。")
+    st.error("【最終エラー】モデルファイルが見つかりません。パスを確認してください。")
     st.stop()
 except Exception as e:
     st.error(f"モデルの読み込み中にエラーが発生しました: {e}")
@@ -200,5 +204,6 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
 
     except Exception as e:
         st.error(f"予測または推薦処理中にエラーが発生しました。エラー: {e}")
+
 
 st.markdown("---")
