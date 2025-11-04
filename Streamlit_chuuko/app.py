@@ -4,19 +4,27 @@ import joblib
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns 
-import matplotlib.font_manager as fm # フォントマネージャー (今回は使用しませんが残します)
+import matplotlib.font_manager as fm 
 
 
 # ========== 協調フィルタリング用データと準備 ==========
 MAKER_OPTIONS = ['トヨタ', 'ホンダ', '日産', 'BMW', 'マツダ', 'スバル', 'メルセデス', 'アウディ', 'その他'] 
 
-# 表示用と内部処理用のマッピング
+# 表示用と内部処理用のマッピング (日本語キー -> 英語値)
 MAKER_MAPPING = {
     'トヨタ': 'toyota', 'ホンダ': 'honda', '日産': 'nissan', 'BMW': 'bmw', 'マツダ': 'mazda', 'スバル': 'subaru',
     'メルセデス': 'mercedes-benz', 'アウディ': 'audi',
 }
 # selectboxに表示するオプションリスト (例: トヨタ (toyota))
 DISPLAY_OPTIONS = [f"{jp} ({MAKER_MAPPING[jp]})" for jp in MAKER_OPTIONS if jp != 'その他'] + ['その他']
+
+# グラフ表示用の日本語キー -> 英語大文字マッピング
+JAPANESE_TO_ENGLISH = {
+    'トヨタ': 'TOYOTA', 'ホンダ': 'HONDA', '日産': 'NISSAN', 
+    'BMW': 'BMW', 'マツダ': 'MAZDA', 'スバル': 'SUBARU',
+    'メルセデス': 'MERCEDES', 'アウディ': 'AUDI',
+    'その他': 'OTHER'
+}
 
 # 仮想のユーザー興味データ (日本語メーカー名を使用)
 recommendation_data = {
@@ -31,19 +39,16 @@ recommendation_data = {
     'その他': {'UserA': 1, 'UserB': 1, 'UserC': 1, 'UserD': 1, 'UserE': 1},
 }
 interest_df = pd.DataFrame(recommendation_data).fillna(0)
-
-# 日本語表示用の逆引きマッピング (推薦結果の表示に使用)
-REVERSE_MAKER_MAPPING = {v: k for k, v in MAKER_MAPPING.items()}
 # ==========================================================
 
-# グラフ描画用の特徴量名マッピング
+# グラフ描画用の特徴量名マッピング (数値特徴量)
 FEATURE_LABEL_MAPPING_EN = {
     '走行距離_km': 'Mileage (km)',
     '年式': 'Year',
     '状態_評価': 'Condition Score',
 }
 
-# グラフラベルのクリーンアップ関数 (構文エラーを避けるためにdefを使用)
+# グラフラベルのクリーンアップ関数 (最終的な英語名決定ロジック)
 def clean_feature_label(x):
     """特徴量名からプレフィックスを削除し、英語名に変換する関数"""
     clean_name = x.replace('remainder__', '')
@@ -55,17 +60,15 @@ def clean_feature_label(x):
     # 2. カテゴリ特徴量 ('cat__トヨタ' -> 'TOYOTA') の変換
     elif clean_name.startswith('cat__'):
         jp_name = clean_name.replace('cat__', '')
-        # 日本語メーカー名を英語大文字に変換 (e.g., トヨタ -> TOYOTA)
-        return MAKER_MAPPING.get(jp_name, jp_name).upper()
+        # 日本語キーから英語大文字キーに変換
+        return JAPANESE_TO_ENGLISH.get(jp_name, jp_name.upper()) 
     
-    # 3. その他の場合はそのまま (エラー回避)
+    # 3. その他
     else:
         return x
 
-
 # 1. モデルと重要度データの読み込み
 try:
-    # ⚠️ 修正: モデルが見つからない問題に対処するため、パスを指定
     BASE_REPO_FOLDER = "Streamlit_chuuko/" 
     
     model_pipeline = joblib.load(BASE_REPO_FOLDER + 'car_price_predictor_model.joblib')
@@ -94,7 +97,6 @@ with col1:
         'メーカー',
         options=DISPLAY_OPTIONS
     )
-    # 内部処理用のキーを抽出 (例: 'トヨタ (toyota)' -> 'トヨタ')
     maker = maker_display.split(' ')[0] 
 
     current_year = 2025
@@ -140,7 +142,6 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
         # --- (A) 回帰分析：予測の実行 ---
         predicted_price = model_pipeline.predict(input_data)[0]
         
-        # 予測価格の表示 (変更なし)
         st.subheader("✅ 予測価格 (回帰分析)")
         formatted_price = f"¥{int(round(predicted_price, -3)):,}" 
         st.success(f"## 予測される販売価格は **{formatted_price}** です")
@@ -148,7 +149,6 @@ if st.button('価格を予測する & 関連車種を推薦する', type='primar
 
 
         # --- (B) 価格の妥当性評価 ---
-        # ... (ロジックは変更なし) ...
         st.markdown("---")
         st.subheader("💰 価格の妥当性評価")
         base_value = (year - 2015) * 50000 + condition * 10000 
